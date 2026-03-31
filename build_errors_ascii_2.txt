@@ -1,0 +1,32 @@
+Launching lib\main.dart on Chrome in debug mode...
+Waiting for connection from debug service on Chrome...          
+flutter : lib/screens/home
+_page.dart:3378:13: 
+Error: Expected an 
+identifier, but got ')'.
+At line:1 char:1
++ flutter run -d chrome > 
+build_errors_2.txt 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo        
+      : NotSpecified: (l  
+  ib/screens/hom...r, b   
+ ut got ')'.:String) [    
+], RemoteException
+    + FullyQualifiedError 
+   Id : NativeCommandErr  
+  or
+ 
+Try inserting an 
+identifier before ')'.
+            ),
+            ^
+lib/screens/home_page.dart
+:3378:13: Error: Expected 
+']' before this.
+            ),
+            ^
+Waiting for connection from debug service on Chrome...             32.1s
+Failed to compile 
+application.

@@ -1,0 +1,45 @@
+Launching lib\main.dart on Chrome in debug mode...
+Waiting for connection from debug service on Chrome...          
+flutter : lib/screens/home
+_page.dart:3168:26: 
+Error: Can't find ')' to 
+match '('.
+At line:1 char:1
++ flutter run -d chrome > 
+build_errors.txt 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo        
+      : NotSpecified: (l  
+  ib/screens/hom...' to   
+  match '('.:String) [    
+], RemoteException
+    + FullyQualifiedError 
+   Id : NativeCommandErr  
+  or
+ 
+              MouseRegion(
+                         ^
+lib/screens/home_page.dart
+:3368:26: Error: Can't 
+find ')' to match '('.
+              MouseRegion(
+                         ^
+lib/screens/home_page.dart
+:3368:26: Error: Too many 
+positional arguments: 0 
+allowed, but 2 found.
+Try removing the extra 
+positional arguments.
+              MouseRegion(
+                         ^
+../../flutter/packages/flu
+tter/lib/src/widgets/basic
+.dart:7388:9: Context: 
+Found this candidate, but 
+the arguments don't match.
+  const MouseRegion({
+        ^^^^^^^^^^^
+Waiting for connection from debug service on Chrome...             33.3s
+Failed to compile 
+application.
