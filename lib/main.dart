@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'services/theme_service.dart';
 import 'firebase_options.dart';
 import 'screens/auth_gate.dart';
 
@@ -15,11 +16,22 @@ class DTradeApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'DTrade',
-      theme: ThemeData.dark(),
-      home: const SplashScreen(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeService.themeModeNotifier,
+      builder: (context, themeMode, child) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'DTrade',
+          theme: ThemeData(
+            brightness: Brightness.light,
+            primaryColor: Colors.amber,
+            scaffoldBackgroundColor: Colors.white,
+          ),
+          darkTheme: ThemeData.dark(),
+          themeMode: themeMode,
+          home: const SplashScreen(),
+        );
+      },
     );
   }
 }
