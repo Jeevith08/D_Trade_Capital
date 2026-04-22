@@ -5,6 +5,18 @@ import 'package:flutter/foundation.dart';
 class SupabaseAuthService {
   static final SupabaseClient _supabase = Supabase.instance.client;
 
+  static const _webClientId = '681249716756-utm6v4jofdpsj7v0j3uhvktdgo5gavt8.apps.googleusercontent.com';
+
+  static final GoogleSignIn _googleSignIn = GoogleSignIn(
+    clientId: kIsWeb ? _webClientId : null,
+    serverClientId: kIsWeb ? null : _webClientId,
+    scopes: [
+      'email',
+      'https://www.googleapis.com/auth/userinfo.profile',
+      'openid',
+    ],
+  );
+
   /// Sign in with Email and Password
   static Future<AuthResponse> signInWithEmail({
     required String email,
@@ -29,21 +41,20 @@ class SupabaseAuthService {
 
   /// Sign in with Google
   static Future<void> signInWithGoogle() async {
-    const webClientId = '681249716756-utm6v4jofdpsj7v0j3uhvktdgo5gavt8.apps.googleusercontent.com';
-    
-    final GoogleSignIn googleSignIn = GoogleSignIn(
-      clientId: kIsWeb ? webClientId : null,
-      serverClientId: kIsWeb ? null : webClientId,
-    );
+    final googleUser = await _googleSignIn.signIn();
+    if (googleUser == null) {
+      throw 'Google Sign-in cancelled by user';
+    }
 
-    
-    final googleUser = await googleSignIn.signIn();
-    final googleAuth = await googleUser?.authentication;
-    final accessToken = googleAuth?.accessToken;
-    final idToken = googleAuth?.idToken;
+    final googleAuth = await googleUser.authentication;
+    final accessToken = googleAuth.accessToken;
+    final idToken = googleAuth.idToken;
 
-    if (accessToken == null || idToken == null) {
-      throw 'Google Sign-in failed: Missing tokens';
+    if (idToken == null) {
+      throw 'Google Sign-in failed: ID Token is null. Check Google Cloud Console config.';
+    }
+    if (accessToken == null) {
+      throw 'Google Sign-in failed: Access Token is null.';
     }
 
     await _supabase.auth.signInWithIdToken(
@@ -52,6 +63,8 @@ class SupabaseAuthService {
       accessToken: accessToken,
     );
   }
+
+
 
 
   /// Sign in with Discord using OAuth
