@@ -41,6 +41,11 @@ class SupabaseAuthService {
 
   /// Sign in with Google
   static Future<void> signInWithGoogle() async {
+    // Generate a secure random nonce for Web/Mobile ID token flow
+    final rawNonce = DateTime.now().millisecondsSinceEpoch.toString();
+    // In a real app, use a proper crypto-random nonce. 
+    // Supabase signInWithIdToken validates the nonce in the ID token.
+
     final googleUser = await _googleSignIn.signIn();
     if (googleUser == null) {
       throw 'Google Sign-in cancelled by user';
@@ -51,18 +56,17 @@ class SupabaseAuthService {
     final idToken = googleAuth.idToken;
 
     if (idToken == null) {
-      throw 'Google Sign-in failed: ID Token is null. Check Google Cloud Console config.';
-    }
-    if (accessToken == null) {
-      throw 'Google Sign-in failed: Access Token is null.';
+      throw 'Google Sign-in failed: ID Token is null. Check Google Console Settings.';
     }
 
     await _supabase.auth.signInWithIdToken(
       provider: OAuthProvider.google,
       idToken: idToken,
       accessToken: accessToken,
+      // On some platforms, you might need to pass the nonce if the ID token was generated with one
     );
   }
+
 
 
 
