@@ -1,7 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
-import '../core/constants/api_constants.dart';
 
 class SupabaseAuthService {
   static final SupabaseClient _supabase = Supabase.instance.client;
@@ -30,19 +29,11 @@ class SupabaseAuthService {
 
   /// Sign in with Google
   static Future<void> signInWithGoogle() async {
-    if (kIsWeb) {
-      // Use the standard Supabase OAuth flow for Web
-      await _supabase.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: kDebugMode ? 'http://localhost:5000' : null,
-      );
-      return;
-    }
-
-    // Native flow for Mobile
+    const webClientId = '681249716756-utm6v4jofdpsj7v0j3uhvktdgo5gavt8.apps.googleusercontent.com';
+    
     final GoogleSignIn googleSignIn = GoogleSignIn(
-      clientId: null, // Not used here for native
-      serverClientId: ApiConstants.googleWebClientId,
+      clientId: kIsWeb ? webClientId : null,
+      serverClientId: webClientId,
     );
     
     final googleUser = await googleSignIn.signIn();
@@ -60,6 +51,7 @@ class SupabaseAuthService {
       accessToken: accessToken,
     );
   }
+
 
   /// Sign in with Discord using OAuth
   static Future<bool> signInWithDiscord() async {

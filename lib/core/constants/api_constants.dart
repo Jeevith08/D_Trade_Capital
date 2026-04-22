@@ -6,5 +6,4 @@ class ApiConstants {
 
   static const String supabaseUrl = 'https://txbehhsfpkjhfirsruyy.supabase.co';
   static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4YmVoaHNmcGtqaGZpcnNydXl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxNzAxNDYsImV4cCI6MjA4Mjc0NjE0Nn0.8Ans5KU4cf1eYMXKM307G2s95hNk0sWEodMpL9-nvzg';
-  static const String googleWebClientId = '681249716756-utm6v4jofdpsj7v0j3uhvktdgo5gavt8.apps.googleusercontent.com';
 }

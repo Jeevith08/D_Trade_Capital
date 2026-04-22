@@ -47,13 +47,4 @@ app.*.map.json
 .fake
 .env
 *.env
-assets/env
-*.py
-*.bak
-*.json
-scratch/
-!google-services.json
-!firebase.json
-!manifest.json
-!Contents.json
-
+assets/env
