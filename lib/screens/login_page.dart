@@ -10,23 +10,11 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final emailController = TextEditingController();
-  final passwordController = TextEditingController();
-
-  bool obscurePassword = true;
   bool isLoading = false;
-  bool _isSignUp = false;
 
   static const Color bg = Color(0xFF070300);
   static const Color gold = Color(0xFFFFB800);
   static const Color border = Color(0xFF3A2500);
-
-  @override
-  void dispose() {
-    emailController.dispose();
-    passwordController.dispose();
-    super.dispose();
-  }
 
   Future<void> _handleGoogleSignIn() async {
     setState(() => isLoading = true);
@@ -39,101 +27,6 @@ class _LoginPageState extends State<LoginPage> {
       );
     } finally {
       if (mounted) setState(() => isLoading = false);
-    }
-  }
-
-  Future<void> _handleDiscordSignIn() async {
-    setState(() => isLoading = true);
-    try {
-      await SupabaseAuthService.signInWithDiscord();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Discord sign-in failed: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => isLoading = false);
-    }
-  }
-
-
-  Future<void> _signInWithEmail() async {
-    final email = emailController.text.trim();
-    final password = passwordController.text.trim();
-
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter email and password')),
-      );
-      return;
-    }
-
-    setState(() => isLoading = true);
-
-    try {
-      final response = await SupabaseAuthService.signInWithEmail(
-        email: email,
-        password: password,
-      );
-
-      if (!mounted) return;
-
-      if (response.user == null) {
-        throw 'Login failed: No user returned';
-      }
-
-      // AuthGate stream will handle navigation automatically
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Supabase Login failed: $e')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _createAccount() async {
-    final email = emailController.text.trim();
-    final password = passwordController.text.trim();
-
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter email and password')),
-      );
-      return;
-    }
-
-    setState(() => isLoading = true);
-
-    try {
-      final response = await SupabaseAuthService.signUpWithEmail(
-        email: email,
-        password: password,
-      );
-
-      if (!mounted) return;
-
-      if (response.user == null) {
-        throw 'Sign up failed';
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Verification email sent! Please check your inbox.')),
-      );
-
-      // AuthGate stream will handle navigation automatically
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Supabase Sign up failed: $e')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => isLoading = false);
-      }
     }
   }
 
@@ -217,7 +110,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        _isSignUp ? 'CREATE SECURE ACCOUNT' : 'AUTHENTICATE TO PROCEED',
+                        'AUTHENTICATE TO PROCEED',
                         style: const TextStyle(
                           color: Colors.white70,
                           letterSpacing: 2.5,
@@ -239,192 +132,15 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       const SizedBox(height: 36),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _socialButton(
-                              label: 'GOOGLE',
-                              icon: Icons.g_mobiledata,
-                              borderColor: border,
-                              textColor: Colors.white,
-                              onTap: isLoading ? null : _handleGoogleSignIn,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _socialButton(
-                              label: 'DISCORD',
-                              icon: Icons.discord,
-                              borderColor: border,
-                              textColor: Colors.white,
-                              onTap: isLoading ? null : _handleDiscordSignIn,
-                            ),
-                          ),
-                        ],
+                      _socialButton(
+                        label: 'SIGN IN WITH GOOGLE',
+                        icon: Icons.g_mobiledata,
+                        borderColor: gold.withOpacity(0.5),
+                        textColor: Colors.white,
+                        onTap: isLoading ? null : _handleGoogleSignIn,
+                        fillColor: gold.withOpacity(0.05),
                       ),
-
                       const SizedBox(height: 32),
-                      Row(
-                        children: const [
-                          Expanded(child: Divider(color: border)),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 12),
-                            child: Text(
-                              'OR PROTOCOL AUTH',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                letterSpacing: 2,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ),
-                          Expanded(child: Divider(color: border)),
-                        ],
-                      ),
-                      const SizedBox(height: 28),
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'EMAIL ADDRESS',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            letterSpacing: 2,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _inputBox(
-                        controller: emailController,
-                        hint: 'you@example.com',
-                        icon: Icons.mail_outline,
-                        obscure: false,
-                      ),
-                      const SizedBox(height: 22),
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'PASSWORD',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            letterSpacing: 2,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _inputBox(
-                        controller: passwordController,
-                        hint: '••••••••••',
-                        icon: Icons.lock_outline,
-                        obscure: obscurePassword,
-                        suffix: IconButton(
-                          onPressed: () {
-                            setState(() {
-                              obscurePassword = !obscurePassword;
-                            });
-                          },
-                          icon: Icon(
-                            obscurePassword
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                            color: Colors.white70,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () async {
-                            final email = emailController.text.trim();
-                            if (email.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Please enter your email address')),
-                              );
-                              return;
-                            }
-                            try {
-                              await SupabaseAuthService.resetPassword(email);
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Verification email sent!')),
-                                );
-                              }
-                            } catch (e) {
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Error: $e')),
-                                );
-                              }
-                            }
-                          },
-                          style: TextButton.styleFrom(
-                            foregroundColor: gold.withOpacity(0.7),
-                            padding: EdgeInsets.zero,
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          child: const Text(
-                            'FORGOT PASSWORD?',
-                            style: TextStyle(
-                              fontSize: 10,
-                              letterSpacing: 1.5,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 28),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: gold,
-                            foregroundColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(vertical: 18),
-                            shape: const RoundedRectangleBorder(),
-                          ),
-                          onPressed: isLoading ? null : (_isSignUp ? _createAccount : _signInWithEmail),
-                          child: Text(
-                            isLoading ? 'PLEASE WAIT...' : (_isSignUp ? 'SIGN UP' : 'LOGIN'),
-                            style: const TextStyle(
-                              letterSpacing: 2,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            _isSignUp ? 'Already have an account? ' : 'No active account? ',
-                            style: const TextStyle(color: Colors.white70),
-                          ),
-                          TextButton(
-                            onPressed: isLoading ? null : () {
-                              setState(() {
-                                _isSignUp = !_isSignUp;
-                              });
-                            },
-                            style: TextButton.styleFrom(
-                              foregroundColor: gold,
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: Text(
-                              _isSignUp ? 'Login' : 'Sign up',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
                       const Text(
                         'Privacy  ·  Terms',
                         style: TextStyle(color: Colors.white54, fontSize: 12),
