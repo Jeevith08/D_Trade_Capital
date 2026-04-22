@@ -1,7 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'package:flutter/material.dart';
 import 'login_page.dart';
-import 'home_page.dart';
+import 'trading_view.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -14,7 +14,7 @@ class AuthGate extends StatelessWidget {
         final session = sb.Supabase.instance.client.auth.currentSession;
 
         if (session != null) {
-          return const HomePage();
+          return const TradingView();
         }
 
         return const LoginPage();
