@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
+import '../core/constants/api_constants.dart';
 
 class SupabaseAuthService {
   static final SupabaseClient _supabase = Supabase.instance.client;
@@ -39,11 +40,9 @@ class SupabaseAuthService {
     }
 
     // Native flow for Mobile
-    const webClientId = '681249716756-utm6v4jofdpsj7v0j3uhvktdgo5gavt8.apps.googleusercontent.com';
-
     final GoogleSignIn googleSignIn = GoogleSignIn(
       clientId: null, // Not used here for native
-      serverClientId: webClientId,
+      serverClientId: ApiConstants.googleWebClientId,
     );
     
     final googleUser = await googleSignIn.signIn();
