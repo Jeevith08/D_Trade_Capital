@@ -59,20 +59,20 @@ class _AccountViewState extends ConsumerState<AccountView> {
 
   @override
   Widget build(BuildContext context) {
+    // Global Announcement Listener (triggers regardless of current tab)
+    ref.listen(communityMessagesProvider, (previous, next) {
+      if (next.hasValue && previous != null && previous.hasValue) {
+        final nextMsgs = next.value!;
+        final prevMsgs = previous.value!;
+        if (nextMsgs.isNotEmpty && (prevMsgs.isEmpty || nextMsgs.first.id != prevMsgs.first.id)) {
+          _showNewMessagePopup(nextMsgs.first);
+        }
+      }
+    });
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final bool isWide = constraints.maxWidth > 850;
-
-        // Global Announcement Listener (triggers regardless of current tab)
-        ref.listen(communityMessagesProvider, (previous, next) {
-          if (next.hasValue && previous != null && previous.hasValue) {
-            final nextMsgs = next.value!;
-            final prevMsgs = previous.value!;
-            if (nextMsgs.isNotEmpty && (prevMsgs.isEmpty || nextMsgs.first.id != prevMsgs.first.id)) {
-              _showNewMessagePopup(nextMsgs.first);
-            }
-          }
-        });
 
         if (isWide) {
 
