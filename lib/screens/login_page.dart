@@ -1,7 +1,5 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import '../services/auth_service.dart';
+import '../services/supabase_auth_service.dart';
 // import 'profile_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -30,29 +28,34 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  Future<void> _signInWithGoogle() async {
+  Future<void> _handleGoogleSignIn() async {
     setState(() => isLoading = true);
-
     try {
-      final userCredential = await AuthService.signInWithGoogle();
-
-      if (!mounted) return;
-
-      // AuthGate stream will handle navigation automatically
-      if (userCredential?.user != null) {
-        // Do nothing, stream builder updates the UI
-      }
+      await SupabaseAuthService.signInWithGoogle();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Google sign-in failed: $e')),
       );
     } finally {
-      if (mounted) {
-        setState(() => isLoading = false);
-      }
+      if (mounted) setState(() => isLoading = false);
     }
   }
+
+  Future<void> _handleDiscordSignIn() async {
+    setState(() => isLoading = true);
+    try {
+      await SupabaseAuthService.signInWithDiscord();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Discord sign-in failed: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => isLoading = false);
+    }
+  }
+
 
   Future<void> _signInWithEmail() async {
     final email = emailController.text.trim();
@@ -68,19 +71,22 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => isLoading = true);
 
     try {
-      final credential =
-          await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final response = await SupabaseAuthService.signInWithEmail(
         email: email,
         password: password,
       );
 
       if (!mounted) return;
 
+      if (response.user == null) {
+        throw 'Login failed: No user returned';
+      }
+
       // AuthGate stream will handle navigation automatically
-    } on FirebaseAuthException catch (e) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? 'Login failed')),
+        SnackBar(content: Text('Supabase Login failed: $e')),
       );
     } finally {
       if (mounted) {
@@ -103,19 +109,26 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => isLoading = true);
 
     try {
-      final credential =
-          await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      final response = await SupabaseAuthService.signUpWithEmail(
         email: email,
         password: password,
       );
 
       if (!mounted) return;
 
+      if (response.user == null) {
+        throw 'Sign up failed';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Verification email sent! Please check your inbox.')),
+      );
+
       // AuthGate stream will handle navigation automatically
-    } on FirebaseAuthException catch (e) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? 'Account creation failed')),
+        SnackBar(content: Text('Supabase Sign up failed: $e')),
       );
     } finally {
       if (mounted) {
@@ -147,12 +160,23 @@ class _LoginPageState extends State<LoginPage> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const SizedBox(height: 12),
-                      Hero(
-                        tag: 'app_logo',
-                        child: Image.asset(
-                          'assets/images/logo.jpeg',
-                          width: 220,
-                          fit: BoxFit.contain,
+                      RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 8.0,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: 'D',
+                              style: TextStyle(color: gold),
+                            ),
+                            const TextSpan(
+                              text: ' TERMINAL',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 18),
@@ -215,7 +239,30 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       const SizedBox(height: 36),
-                      const GoogleSignInButtonWidget(),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _socialButton(
+                              label: 'GOOGLE',
+                              icon: Icons.g_mobiledata,
+                              borderColor: border,
+                              textColor: Colors.white,
+                              onTap: isLoading ? null : _handleGoogleSignIn,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _socialButton(
+                              label: 'DISCORD',
+                              icon: Icons.discord,
+                              borderColor: border,
+                              textColor: Colors.white,
+                              onTap: isLoading ? null : _handleDiscordSignIn,
+                            ),
+                          ),
+                        ],
+                      ),
+
                       const SizedBox(height: 32),
                       Row(
                         children: const [
@@ -282,6 +329,49 @@ class _LoginPageState extends State<LoginPage> {
                                 ? Icons.visibility_outlined
                                 : Icons.visibility_off_outlined,
                             color: Colors.white70,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () async {
+                            final email = emailController.text.trim();
+                            if (email.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Please enter your email address')),
+                              );
+                              return;
+                            }
+                            try {
+                              await SupabaseAuthService.resetPassword(email);
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Verification email sent!')),
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e')),
+                                );
+                              }
+                            }
+                          },
+                          style: TextButton.styleFrom(
+                            foregroundColor: gold.withOpacity(0.7),
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text(
+                            'FORGOT PASSWORD?',
+                            style: TextStyle(
+                              fontSize: 10,
+                              letterSpacing: 1.5,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
@@ -432,6 +522,7 @@ class VerticalAccentLine extends StatelessWidget {
   }
 }
 
+/*
 class GoogleSignInButtonWidget extends StatefulWidget {
   const GoogleSignInButtonWidget({super.key});
 
@@ -446,9 +537,20 @@ class _GoogleSignInButtonWidgetState extends State<GoogleSignInButtonWidget> {
     setState(() => _isLoading = true);
 
     try {
-      final userCredential = await AuthService.signInWithGoogle();
-        
-      if (userCredential?.user != null && mounted) {
+      final googleUser = await SupabaseAuthService.googleSignIn.signIn();
+      if (googleUser == null) return;
+
+      final googleAuth = await googleUser.authentication;
+      final idToken = googleAuth.idToken;
+      final accessToken = googleAuth.accessToken;
+
+      if (idToken == null || accessToken == null) {
+        throw 'Missing Google Auth Tokens';
+      }
+
+      await SupabaseAuthService.signInWithGoogle(idToken, accessToken);
+      
+      if (mounted) {
         // AuthGate stream will handle navigation automatically
       }
     } catch (e) {
@@ -502,3 +604,4 @@ class _GoogleSignInButtonWidgetState extends State<GoogleSignInButtonWidget> {
     );
   }
 }
+*/

@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import '../widgets/shared.dart';
+import '../widgets/market_chart.dart';
+import '../widgets/live_candle_chart.dart';
 
-class TradingView extends StatefulWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/market_service.dart';
+import '../services/intelligence_service.dart';
+
+class TradingView extends ConsumerStatefulWidget {
   const TradingView({super.key});
 
   @override
-  State<TradingView> createState() => _TradingViewState();
+  ConsumerState<TradingView> createState() => _TradingViewState();
 }
 
-class _TradingViewState extends State<TradingView> {
+class _TradingViewState extends ConsumerState<TradingView> {
   final ScrollController _mainScrollController = ScrollController();
   bool _isPaperConnected = false;
   double _paperBalance = 0;
@@ -21,6 +27,8 @@ class _TradingViewState extends State<TradingView> {
   double _stopLoss = 50.0;
   double _takeProfit = 100.0;
   String _selectedSignalTab = 'ALL';
+  Set<int>? __expandedSignalIndices;
+  Set<int> get _expandedSignalIndices => __expandedSignalIndices ??= {};
 
   List<Map<String, dynamic>> _marketWatchItems = [
     {
@@ -64,42 +72,7 @@ class _TradingViewState extends State<TradingView> {
   @override
   void initState() {
     super.initState();
-    _signals = [
-      {
-        'type': 'SELL',
-        'pair': 'XAU/USD',
-        'conf': 'HIGH',
-        'color': const Color(0xFFFF0033),
-        'status': 'PASSED',
-        'result': 'TP2',
-        'pips': '+80',
-        'isExpanded': false
-      },
-      {
-        'type': 'SELL',
-        'pair': 'XAU/USD',
-        'conf': 'HIGH',
-        'color': const Color(0xFFFF0033),
-        'status': 'PASSED',
-        'isExpanded': false
-      },
-      {
-        'type': 'BUY',
-        'pair': 'XAU/USD',
-        'conf': 'LOW',
-        'color': gold,
-        'status': 'PASSED',
-        'isExpanded': false
-      },
-      {
-        'type': 'BUY',
-        'pair': 'XAU/USD',
-        'conf': 'MEDIUM',
-        'color': gold,
-        'status': 'PASSED',
-        'isExpanded': false
-      },
-    ];
+    // _signals will now be fetched from signalsProvider in the build method
   }
 
   void _showAddSymbolDialog() {
@@ -110,7 +83,8 @@ class _TradingViewState extends State<TradingView> {
         builder: (context, setDialogState) {
           final filteredSymbols = _allAvailableSymbols
               .where((s) =>
-                  s['pair'].toLowerCase().contains(searchQuery.toLowerCase()))
+                  (s['pair']?.toString().toLowerCase() ?? '')
+                  .contains(searchQuery.toLowerCase()))
               .toList();
 
           return Dialog(
@@ -1141,67 +1115,101 @@ class _TradingViewState extends State<TradingView> {
   }
 
   Widget _buildSignals() {
-    final filteredSignals = _signals.where((s) {
-      if (_selectedSignalTab == 'ALL') return true;
-      if (_selectedSignalTab == 'BUY') return s['type'] == 'BUY';
-      if (_selectedSignalTab == 'SELL') return s['type'] == 'SELL';
-      if (_selectedSignalTab == 'ACTIVE') return s['status'] == 'ACTIVE';
-      return true;
-    }).toList();
+    final signalsAsync = ref.watch(signalsProvider);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: themeSurface(context),
-        border: Border.all(color: themeBorder(context)),
+    return signalsAsync.when(
+      data: (signals) {
+        final List<Map<String, dynamic>> mappedSignals = [];
+        for (int i = 0; i < signals.length; i++) {
+          final s = signals[i];
+          mappedSignals.add({
+            'index': i,
+            'type': s.type ?? 'BUY',
+            'pair': s.pair ?? '--',
+            'conf': s.confidence > 80 ? 'HIGH' : s.confidence > 60 ? 'MEDIUM' : 'LOW',
+            'confidenceRaw': s.confidence,
+            'previewColor': s.type == 'BUY' ? const Color(0xFF00FF66) : const Color(0xFFFF0033),
+            'status': s.status ?? 'ACTIVE',
+            'headline': s.headline ?? '',
+            'result': s.result ?? '--',
+            'pips': s.pips ?? '--',
+            'isExpanded': _expandedSignalIndices.contains(i),
+            'isVerified': true,
+          });
+        }
+
+        final filteredSignals = mappedSignals.where((s) {
+          if (_selectedSignalTab == 'ALL') return true;
+          if (_selectedSignalTab == 'BUY') return s['type'] == 'BUY';
+          if (_selectedSignalTab == 'SELL') return s['type'] == 'SELL';
+          if (_selectedSignalTab == 'ACTIVE') return s['status'] == 'ACTIVE';
+          return true;
+        }).toList();
+
+        return Container(
+          decoration: BoxDecoration(
+            color: themeSurface(context),
+            border: Border.all(color: themeBorder(context)),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: gold, width: 2))),
+                  const SizedBox(width: 8),
+                  Text('SIGNALS',
+                      style: TextStyle(
+                          color: themeText(context),
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 12),
+                  const Icon(Icons.verified, color: gold, size: 14),
+                  const SizedBox(width: 4),
+                  const Text('API VERIFIED', style: TextStyle(color: gold, fontSize: 9, fontWeight: FontWeight.bold)),
+                  const Spacer(),
+                  _badge('${mappedSignals.length} TOTAL', Colors.white24),
+                  const SizedBox(width: 4),
+                  _badge(
+                      '${mappedSignals.where((s) => s['status'] == 'ACTIVE').length} ACTIVE',
+                      Colors.white24),
+                  const SizedBox(width: 4),
+                  _badge(
+                      '${mappedSignals.where((s) => s['status'] == 'PASSED').length} PASSED',
+                      const Color(0xFF00FF66)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _signalTab('ALL'),
+                  _signalTab('BUY'),
+                  _signalTab('SELL'),
+                  _signalTab('ACTIVE'),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ...filteredSignals.map((s) => _signalRow(s)),
+            ],
+          ),
+        );
+      },
+      loading: () => Container(
+        height: 300,
+        decoration: BoxDecoration(color: themeSurface(context), border: Border.all(color: themeBorder(context))),
+        child: const Center(child: CircularProgressIndicator(color: gold)),
       ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: gold, width: 2))),
-              const SizedBox(width: 8),
-              Text('SIGNALS',
-                  style: TextStyle(
-                      color: themeText(context),
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold)),
-              const SizedBox(width: 16),
-              Text('Click to view',
-                  style: TextStyle(
-                      color: themeTextDim(context).withOpacity(0.7),
-                      fontSize: 10)),
-              const Spacer(),
-              _badge('${_signals.length} TOTAL', Colors.white24),
-              const SizedBox(width: 4),
-              _badge(
-                  '${_signals.where((s) => s['status'] == 'ACTIVE').length} ACTIVE',
-                  Colors.white24),
-              const SizedBox(width: 4),
-              _badge(
-                  '${_signals.where((s) => s['status'] == 'PASSED').length} PASSED',
-                  const Color(0xFF00FF66)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _signalTab('ALL'),
-              _signalTab('BUY'),
-              _signalTab('SELL'),
-              _signalTab('ACTIVE'),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ...filteredSignals.map((s) => _signalRow(s)),
-        ],
+      error: (e, stack) => Container(
+        height: 100,
+        decoration: BoxDecoration(color: themeSurface(context), border: Border.all(color: themeBorder(context))),
+        child: const Center(child: Text('SIGNAL ENGINE ERROR', style: TextStyle(color: Colors.redAccent, fontSize: 10))),
       ),
     );
   }
@@ -1244,11 +1252,13 @@ class _TradingViewState extends State<TradingView> {
   }
 
   Widget _signalRow(Map<String, dynamic> signal) {
-    final String type = signal['type'];
-    final String pair = signal['pair'];
-    final String conf = signal['conf'];
-    final Color outlineColor = signal['color'];
-    final bool isExpanded = signal['isExpanded'] ?? false;
+    final String type = signal['type']?.toString() ?? 'BUY';
+    final String pair = signal['pair']?.toString() ?? '--';
+    final String conf = signal['conf']?.toString() ?? 'MEDIUM';
+    final String status = signal['status']?.toString() ?? 'ACTIVE';
+    final Color typeColor = signal['previewColor'] as Color? ?? gold;
+    final bool isExpanded = signal['isExpanded'] == true;
+    final bool isPassed = status == 'PASSED';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -1259,7 +1269,16 @@ class _TradingViewState extends State<TradingView> {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: () => setState(() => signal['isExpanded'] = !isExpanded),
+                onTap: () {
+                  setState(() {
+                    final int idx = signal['index'];
+                    if (_expandedSignalIndices.contains(idx)) {
+                      _expandedSignalIndices.remove(idx);
+                    } else {
+                      _expandedSignalIndices.add(idx);
+                    }
+                  });
+                },
                 hoverColor: gold.withOpacity(0.02),
                 splashColor: gold.withOpacity(0.05),
                 child: Container(
@@ -1282,12 +1301,12 @@ class _TradingViewState extends State<TradingView> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                                color: outlineColor.withOpacity(0.1),
+                                color: typeColor.withOpacity(0.1),
                                 border: Border.all(
-                                    color: outlineColor.withOpacity(0.5))),
+                                    color: typeColor.withOpacity(0.5))),
                             child: Text(type,
                                 style: TextStyle(
-                                    color: outlineColor,
+                                    color: typeColor,
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold)),
                           ),
@@ -1305,12 +1324,12 @@ class _TradingViewState extends State<TradingView> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                                color: outlineColor.withOpacity(0.1),
+                                color: typeColor.withOpacity(0.1),
                                 border: Border.all(
-                                    color: outlineColor.withOpacity(0.5))),
+                                    color: typeColor.withOpacity(0.5))),
                             child: Text(conf,
                                 style: TextStyle(
-                                    color: outlineColor,
+                                    color: typeColor,
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold)),
                           ),
@@ -1319,12 +1338,11 @@ class _TradingViewState extends State<TradingView> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                                color: gold.withOpacity(0.1),
-                                border:
-                                    Border.all(color: gold.withOpacity(0.5))),
-                            child: const Text('PASSED',
+                                color: isPassed ? const Color(0xFF00FF66).withOpacity(0.1) : gold.withOpacity(0.1),
+                                border: Border.all(color: isPassed ? const Color(0xFF00FF66).withOpacity(0.5) : gold.withOpacity(0.5))),
+                            child: Text(status,
                                 style: TextStyle(
-                                    color: gold,
+                                    color: isPassed ? const Color(0xFF00FF66) : gold,
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold)),
                           ),
@@ -1401,8 +1419,11 @@ class _TradingViewState extends State<TradingView> {
           Row(
             children: [
               if (isDoubleCheck) ...[
-                const Icon(Icons.done_all, color: Color(0xFF00FF66), size: 14),
-                const SizedBox(width: 4),
+                const Text('✓✓ ',
+                    style: TextStyle(
+                        color: Color(0xFF00FF66),
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold)),
               ],
               Text(value,
                   style: TextStyle(
@@ -1539,7 +1560,10 @@ class _TradingViewState extends State<TradingView> {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                Icon(Icons.show_chart, color: themeTextDim(context).withOpacity(0.1), size: 60),
+                const Padding(
+                  padding: EdgeInsets.only(top: 24, bottom: 44, right: 12),
+                  child: LiveCandleChart(symbol: 'EUR/USD'),
+                ),
                 Positioned(
                   right: 12,
                   top: 40,

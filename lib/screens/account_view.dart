@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import '../widgets/shared.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as sb;
+import '../services/supabase_auth_service.dart';
+import '../services/intelligence_service.dart';
 import '../services/theme_service.dart';
+import '../widgets/shared.dart';
 
-class AccountView extends StatefulWidget {
+class AccountView extends ConsumerStatefulWidget {
   const AccountView({super.key});
 
   @override
-  State<AccountView> createState() => _AccountViewState();
+  ConsumerState<AccountView> createState() => _AccountViewState();
 }
 
-class _AccountViewState extends State<AccountView> {
-  final _user = FirebaseAuth.instance.currentUser;
+class _AccountViewState extends ConsumerState<AccountView> {
+  final _sbUser = sb.Supabase.instance.client.auth.currentUser;
   late TextEditingController _nameCtrl;
   late TextEditingController _emailCtrl;
   late TextEditingController _phoneCtrl;
@@ -28,9 +31,11 @@ class _AccountViewState extends State<AccountView> {
   @override
   void initState() {
     super.initState();
-    _nameCtrl = TextEditingController(text: _user?.displayName ?? 'New Trader');
-    _emailCtrl =
-        TextEditingController(text: _user?.email ?? 'unknown@example.com');
+    final name = _sbUser?.email ?? 'New Trader';
+    final email = _sbUser?.email ?? 'unknown@example.com';
+    
+    _nameCtrl = TextEditingController(text: name);
+    _emailCtrl = TextEditingController(text: email);
     _phoneCtrl = TextEditingController(text: '+91 ');
   }
 
@@ -43,21 +48,10 @@ class _AccountViewState extends State<AccountView> {
   }
 
   Future<void> _saveChanges() async {
-    if (_user != null) {
-      await _user.updateDisplayName(_nameCtrl.text);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Profile saved successfully!',
-                style: TextStyle(
-                    color: isDark(context) ? Colors.black : Colors.white,
-                    fontWeight: FontWeight.bold)),
-            backgroundColor: gold,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    }
+    // Supabase handles profile updates differently (via the 'users' table or auth.updateUser)
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Profile update logic needs Supabase table setup.')),
+    );
   }
 
   @override
@@ -452,8 +446,8 @@ class _AccountViewState extends State<AccountView> {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: () {
-          FirebaseAuth.instance.signOut();
+        onTap: () async {
+          await SupabaseAuthService.signOut();
         },
         child: Container(
           width: double.infinity,
@@ -496,9 +490,9 @@ class _AccountViewState extends State<AccountView> {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: () {
+        onTap: () async {
           if (isLogout) {
-            FirebaseAuth.instance.signOut();
+            await SupabaseAuthService.signOut();
           } else {
             setState(() {
               _selectedMenu = title;
@@ -757,37 +751,94 @@ class _AccountViewState extends State<AccountView> {
   }
 
   Widget _buildNotifications() {
-    return _cardWrapper(
-      icon: Icons.notifications_none,
-      title: 'NOTIFICATION PREFERENCES',
+    final user = sb.Supabase.instance.client.auth.currentUser;
+    final alertsAsync = user != null ? ref.watch(userAlertsProvider(user.id)) : const AsyncValue.data([]);
+
+    return Column(
+      children: [
+        _cardWrapper(
+          icon: Icons.notifications_active_outlined,
+          title: 'RECENT ALERTS',
+          child: alertsAsync.when(
+            data: (alerts) {
+              if (alerts.isEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: Text('No active alerts', style: TextStyle(color: themeTextDim(context).withOpacity(0.5))),
+                  ),
+                );
+              }
+              return Column(
+                children: alerts.map((a) => _alertItem(a)).toList(),
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator(color: gold)),
+            error: (err, _) => Center(child: Text('Error loading alerts', style: TextStyle(color: themeTextDim(context)))),
+          ),
+        ),
+        const SizedBox(height: 24),
+        _cardWrapper(
+          icon: Icons.notifications_none,
+          title: 'NOTIFICATION PREFERENCES',
+          child: Column(
+            children: [
+              _toggleRow(
+                  'Broadcast Announcements',
+                  'Stay updated with official news and updates',
+                  _t1,
+                  () => setState(() => _t1 = !_t1)),
+              _toggleRow(
+                  'Support Replies',
+                  'Get notified when support staff replies to your tickets',
+                  _t2,
+                  () => setState(() => _t2 = !_t2)),
+              _toggleRow(
+                  'Signal Alerts',
+                  'Receive real-time trading signals and alerts',
+                  _t3,
+                  () => setState(() => _t3 = !_t3)),
+              _toggleRow(
+                  'Payment Updates',
+                  'Notifications about your subscriptions and payments',
+                  _t4,
+                  () => setState(() => _t4 = !_t4)),
+              _toggleRow(
+                  'In-App Push Notifications',
+                  'Receive real-time alerts inside the app',
+                  _t5,
+                  () => setState(() => _t5 = !_t5),
+                  isLast: true),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _alertItem(dynamic alert) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: gold.withOpacity(0.05),
+        border: Border.all(color: gold.withOpacity(0.1)),
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _toggleRow(
-              'Broadcast Announcements',
-              'Stay updated with official news and updates',
-              _t1,
-              () => setState(() => _t1 = !_t1)),
-          _toggleRow(
-              'Support Replies',
-              'Get notified when support staff replies to your tickets',
-              _t2,
-              () => setState(() => _t2 = !_t2)),
-          _toggleRow(
-              'Signal Alerts',
-              'Receive real-time trading signals and alerts',
-              _t3,
-              () => setState(() => _t3 = !_t3)),
-          _toggleRow(
-              'Payment Updates',
-              'Notifications about your subscriptions and payments',
-              _t4,
-              () => setState(() => _t4 = !_t4)),
-          _toggleRow(
-              'In-App Push Notifications',
-              'Receive real-time alerts inside the app',
-              _t5,
-              () => setState(() => _t5 = !_t5),
-              isLast: true),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(alert['type']?.toString().toUpperCase() ?? 'INFO',
+                  style: const TextStyle(color: gold, fontSize: 10, fontWeight: FontWeight.bold)),
+              Text(alert['time'] ?? 'Just now', style: TextStyle(color: themeTextDim(context), fontSize: 10)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(alert['message'] ?? 'No message content',
+              style: TextStyle(color: themeText(context), fontSize: 13, height: 1.4)),
         ],
       ),
     );
@@ -1043,9 +1094,9 @@ class _AccountViewState extends State<AccountView> {
               MouseRegion(
                 cursor: SystemMouseCursors.click,
                 child: GestureDetector(
-                  onTap: () {
-                  FirebaseAuth.instance.signOut();
-                },
+                  onTap: () async {
+                    await SupabaseAuthService.signOut();
+                  },
                   child: _dangerBtn('Logout', false, icon: Icons.logout),
                 ),
               ),

@@ -45,5 +45,18 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>io.supabase.flutter</string>
+				<string>com.googleusercontent.apps.681249716756-utm6v4jofdpsj7v0j3uhvktdgo5gavt8</string>
+			</array>
+		</dict>
+	</array>
+
 </dict>
 </plist>

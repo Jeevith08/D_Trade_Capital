@@ -1,19 +1,22 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as sb;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/market_service.dart';
 import '../widgets/shared.dart';
 import 'trading_view.dart';
 import 'intelligence_view.dart';
 import 'account_view.dart';
 
-class HomePage extends StatefulWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends ConsumerState<HomePage> {
   int _currentIndex = 0;
   final ScrollController _tickerController = ScrollController();
   Timer? _tickerTimer;
@@ -84,16 +87,18 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildTopTicker() {
-    final tickerItems = [
-      _tickerItem('BTC/USD', '67,420.30', '+2.14%', true),
-      _tickerItem('ETH/USD', '3,801.55', '+1.87%', true),
-      _tickerItem('EUR/USD', '1.0842', '-0.12%', false),
-      _tickerItem('GBP/USD', '1.2680', '+0.34%', true),
-      _tickerItem('XAU/USD', '2,380.40', '-0.06%', false),
+    final marketData = ref.watch(marketServiceProvider);
+    
+    final tickerItems = marketData.values.map((data) {
+      return _tickerItem(data.pair, data.price.toStringAsFixed(data.pair.contains('JPY') || data.pair.contains('XAU') ? 2 : 4), 
+          "${data.change > 0 ? '+' : ''}${data.change.toStringAsFixed(2)}%", data.isUp);
+    }).toList();
+
+    // Add some static indices to make it look full
+    tickerItems.addAll([
       _tickerItem('SPX', '5,432.10', '+0.61%', true),
       _tickerItem('NASDAQ', '19,240.20', '+0.92%', true),
-      _tickerItem('NQ/F', '19,287.00', '+1.04%', true),
-    ];
+    ]);
 
     return Container(
       height: 28,
@@ -166,8 +171,9 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
               Builder(builder: (ctx) {
-                final u = FirebaseAuth.instance.currentUser;
-                final name = u?.displayName ?? u?.email ?? 'ME';
+                final sbUser = sb.Supabase.instance.client.auth.currentUser;
+                
+                final name = sbUser?.email ?? 'ME';
                 final initials = name.length >= 2
                     ? name.substring(0, 2).toUpperCase()
                     : 'ME';
