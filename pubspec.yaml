@@ -20,6 +20,8 @@ dependencies:
   fl_chart: ^0.66.0
   socket_io_client: ^2.0.3
   candlesticks: ^2.1.0
+  intl: ^0.19.0
+
 
 dev_dependencies:
   flutter_test:

@@ -5,6 +5,9 @@ import '../services/supabase_auth_service.dart';
 import '../services/intelligence_service.dart';
 import '../services/theme_service.dart';
 import '../widgets/shared.dart';
+import '../services/community_service.dart';
+import 'package:intl/intl.dart';
+
 
 class AccountView extends ConsumerStatefulWidget {
   const AccountView({super.key});
@@ -60,7 +63,19 @@ class _AccountViewState extends ConsumerState<AccountView> {
       builder: (context, constraints) {
         final bool isWide = constraints.maxWidth > 850;
 
+        // Global Announcement Listener (triggers regardless of current tab)
+        ref.listen(communityMessagesProvider, (previous, next) {
+          if (next.hasValue && previous != null && previous.hasValue) {
+            final nextMsgs = next.value!;
+            final prevMsgs = previous.value!;
+            if (nextMsgs.isNotEmpty && (prevMsgs.isEmpty || nextMsgs.first.id != prevMsgs.first.id)) {
+              _showNewMessagePopup(nextMsgs.first);
+            }
+          }
+        });
+
         if (isWide) {
+
           return Row(
             children: [
               _buildAccountNavigationSidebar(),
@@ -125,10 +140,14 @@ class _AccountViewState extends ConsumerState<AccountView> {
           const SizedBox(height: 20),
           _buildBilling(),
         ] else if (_selectedMenu == 'COMMUNITY') ...[
-          _placeholderPanel('COMMUNITY & FORUMS',
-              'Community access is currently restricted to verified tier 2 traders.'),
+          _buildCommunityHeader(),
+          const SizedBox(height: 24),
+          _buildCommunityTabs(),
+          const SizedBox(height: 24),
+          _buildCommunityContent(),
         ] else if (_selectedMenu == 'HELP') ...[
           _buildLegal(),
+
           const SizedBox(height: 20),
           _placeholderPanel(
               'SUPPORT TICKETS', 'You have 0 active support tickets.'),
@@ -698,7 +717,281 @@ class _AccountViewState extends ConsumerState<AccountView> {
     );
   }
 
+  Widget _buildCommunityHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: themeSection(context),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: gold.withOpacity(0.1)),
+              ),
+              child: const Icon(Icons.people_alt_outlined, color: gold, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'COMMUNITY',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                Text(
+                  'Connect and learn from the trading community',
+                  style: TextStyle(
+                    color: themeTextDim(context).withOpacity(0.6),
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCommunityTabs() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: themeSection(context),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: themeBorder(context).withOpacity(0.5)),
+      ),
+      child: Row(
+        children: [
+          _communityTabItem('Announcements', Icons.campaign_outlined, true),
+          _communityTabItem('Live Chat', Icons.chat_bubble_outline, false),
+          _communityTabItem('Community Forum', Icons.forum_outlined, false),
+        ],
+      ),
+    );
+  }
+
+  Widget _communityTabItem(String label, IconData icon, bool isActive) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isActive ? gold.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: isActive ? Border.all(color: gold.withOpacity(0.3)) : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: isActive ? gold : themeTextDim(context), size: 16),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: isActive ? gold : themeTextDim(context),
+                fontSize: 12,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCommunityContent() {
+    final messagesAsync = ref.watch(communityMessagesProvider);
+
+    return Column(
+
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.campaign_outlined, color: gold, size: 20),
+                const SizedBox(width: 12),
+                Text(
+                  'Important Updates',
+                  style: TextStyle(
+                    color: themeText(context),
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: themeSection(context),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: themeTextDim(context).withOpacity(0.2)),
+              ),
+              child: Text(
+                '1 ANNOUNCEMENTS',
+                style: TextStyle(
+                   color: themeTextDim(context).withOpacity(0.5),
+                   fontSize: 10,
+                   fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        messagesAsync.when(
+          data: (messages) {
+            if (messages.isEmpty) {
+              return _placeholderPanel('NO UPDATES', 'Check back later for community announcements.');
+            }
+            return Column(
+              children: messages.map((m) => _buildMessageCard(m)).toList(),
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator(color: gold)),
+          error: (err, _) => Center(child: Text('Error: $err', style: TextStyle(color: themeTextDim(context)))),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMessageCard(CommunityMessage message) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: themeSection(context),
+        border: Border.all(color: themeBorder(context)),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: gold.withOpacity(0.05),
+                  border: Border.all(color: gold.withOpacity(0.2)),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  message.type.toUpperCase(),
+                  style: const TextStyle(color: gold, fontSize: 9, fontWeight: FontWeight.bold),
+                ),
+              ),
+              Text(
+                DateFormat('M/d/yyyy, h:mm:ss a').format(message.createdAt),
+                style: TextStyle(color: themeTextDim(context).withOpacity(0.3), fontSize: 10),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            message.title,
+            style: TextStyle(
+              color: themeText(context),
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            message.content,
+            style: TextStyle(
+              color: themeTextDim(context).withOpacity(0.8),
+              fontSize: 13,
+              height: 1.8,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            '— Team D Trade Capital',
+            style: TextStyle(
+              color: themeTextDim(context).withOpacity(0.5),
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showNewMessagePopup(CommunityMessage message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        content: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0C0704),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: gold.withOpacity(0.5)),
+            boxShadow: [
+              BoxShadow(
+                color: gold.withOpacity(0.2),
+                blurRadius: 20,
+                spreadRadius: -5,
+              )
+            ],
+          ),
+          child: Row(
+            children: [
+              const CircleAvatar(
+                backgroundColor: gold,
+                radius: 12,
+                child: Icon(Icons.notifications_active, color: Colors.black, size: 14),
+              ),
+
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'NEW ANNOUNCEMENT',
+                      style: TextStyle(color: gold, fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      message.title,
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: () => setState(() => _selectedMenu = 'COMMUNITY'),
+                child: const Text('VIEW', style: TextStyle(color: gold, fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _inputField(String label, TextEditingController ctrl, Widget? extra,
+
       {bool isPrefix = false, bool readOnly = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
