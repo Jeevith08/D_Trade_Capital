@@ -32,7 +32,7 @@ class CommunityService {
 
   Stream<List<CommunityMessage>> getMessagesStream() {
     return _supabase
-        .from('community_messages')
+        .from('ticket_messages')
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: false)
         .map((data) => data.map((m) => CommunityMessage.fromMap(m)).toList());
@@ -40,12 +40,13 @@ class CommunityService {
 
   Future<List<CommunityMessage>> getMessages() async {
     final response = await _supabase
-        .from('community_messages')
+        .from('ticket_messages')
         .select()
         .order('created_at', ascending: false);
     
     return (response as List).map((m) => CommunityMessage.fromMap(m)).toList();
   }
+
 }
 
 final communityServiceProvider = Provider((ref) => CommunityService());
